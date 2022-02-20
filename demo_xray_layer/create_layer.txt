@@ -1,0 +1,3 @@
+$ mkdir python
+$ pip install aws-xray-sdk -t python/
+$ zip -r xray-python.zip python/

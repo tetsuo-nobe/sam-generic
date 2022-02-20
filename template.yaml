@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sam-demo-xray
+
+  Sample SAM Template for sam-demo-xray
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Parameters:
+  SQSQUEUE:
+    Type: String
+    Default: 'DemoXRayQueue'
+  DDBTABLE:
+    Type: String
+    Default: 'DemoXRayTable'
+  S3BUCKET:
+    Type: String
+    Default: 'tnobe-serverless-demo-xray-bucket'  
+Globals:
+  Function:
+    Timeout: 15
+    Environment:
+      Variables:
+        SQS_QUEUE: !Ref SQSQUEUE
+        DDB_TABLE: !Ref DDBTABLE
+    Tracing: Active
+    Layers:
+      - !Ref DemoXRayLambdaLayer
+  Api:
+    TracingEnabled: True
+Resources:
+  DemoXRayFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: 'DemoXRayFunction'
+      CodeUri: demo_xray_function/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt DemoXRayFunctionRole.Arn
+      Events:
+        DemoXRayEvent:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /xray
+            Method: post
+  DemoXRayLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: 'DemoXRayLambdaLayer'
+      CompatibleRuntimes:
+        - python3.8
+      ContentUri: demo_xray_layer/xray-python.zip
+  DemoXRayFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal: 
+              Service: "lambda.amazonaws.com"
+      Policies:
+        - PolicyName: "my-demo-xray-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:*"
+                  - "s3:*"
+                  - "sqs:*"
+                  - "dynamodb:*"
+                  - "xray:PutTraceSegments"
+                  - "xray:PutTelemetryRecords"
+                Resource: "*"
+  DemoXRayTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: !Ref DDBTABLE
+      PrimaryKey:
+        Name: id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+  DemoXRayQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref SQSQUEUE
+  DemoXRayBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BUCKET    
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  DemoXRayFunctionApi:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/xray/"
+  DemoXRayFunction:
+    Description: "DemoXRayFunction ARN"
+    Value: !GetAtt DemoXRayFunction.Arn
+  DemoXRayQueue:
+    Description: "DemoXRayQueue ARN"
+    Value: !GetAtt DemoXRayQueue.Arn
+  DemoXRayFunctionIamRole:
+    Description: "Implicit IAM Role created for DemoXRayFunction"
+    Value: !GetAtt DemoXRayFunctionRole.Arn
