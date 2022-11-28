@@ -43,6 +43,20 @@ Resources:
           Properties:
             Path: /xray
             Method: post
+  DemoSQSReceiveFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: 'DemoSQSReceiveFunction'
+      CodeUri: demo_sqs_receive_function/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt DemoXRayFunctionRole.Arn
+      Events:
+        DemoSQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt DemoXRayQueue.Arn
+            BatchSize: 1
   DemoXRayLambdaLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
@@ -108,3 +122,6 @@ Outputs:
   DemoXRayFunctionIamRole:
     Description: "Implicit IAM Role created for DemoXRayFunction"
     Value: !GetAtt DemoXRayFunctionRole.Arn
+  DemoSQSReceiveFunctionIamRole:
+    Description: "Implicit IAM Role created for DemoSQSReceiveFunction"
+    Value: !GetAtt DemoSQSReceiveFunction.Arn
